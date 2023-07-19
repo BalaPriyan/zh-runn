@@ -13,7 +13,6 @@ from bot.helper.ext_utils.bot_utils import cmd_exec, sync_to_async
 from bot.helper.ext_utils.fs_utils import get_mime_type, count_files_and_folders
 
 
-
 LOGGER = getLogger(__name__)
 
 
@@ -77,7 +76,7 @@ class RcloneTransferHelper:
         return remote
 
     async def __create_rc_sa(self, remote, remote_opts):
-        sa_conf_dir = 'rcl_sa'
+        sa_conf_dir = 'rclone_sa'
         sa_conf_file = f'{sa_conf_dir}/{remote}.conf'
         if not await aiopath.isdir(sa_conf_dir):
             await mkdir(sa_conf_dir)
@@ -89,7 +88,7 @@ class RcloneTransferHelper:
         elif gd_id := remote_opts.get('root_folder_id'):
             option = 'root_folder_id'
         else:
-            return 'rcl.conf'
+            return 'rclone.conf'
 
         files = await listdir('accounts')
         text = ''.join(f"[sa{i:03}]\ntype = drive\nscope = drive\nservice_account_file = accounts/{sa}\n{option} = {gd_id}\n\n"
@@ -136,10 +135,10 @@ class RcloneTransferHelper:
             return
         remote_type = remote_opts['type']
 
-        if remote_type == 'drive' and config_dict['USE_SERVICE_ACCOUNTS'] and config_path == 'rcl.conf' \
+        if remote_type == 'drive' and config_dict['USE_SERVICE_ACCOUNTS'] and config_path == 'rclone.conf' \
                 and await aiopath.isdir('accounts') and not remote_opts.get('service_account_file'):
             config_path = await self.__create_rc_sa(remote, remote_opts)
-            if config_path != 'rcl.conf':
+            if config_path != 'rclone.conf':
                 sa_files = await listdir('accounts')
                 self.__sa_number = len(sa_files)
                 self.__sa_index = randrange(self.__sa_number)
@@ -147,7 +146,8 @@ class RcloneTransferHelper:
                 LOGGER.info(f'Download with service account {remote}')
 
         rcflags = self.__listener.rcFlags or config_dict['RCLONE_FLAGS']
-        cmd = self.__getUpdatedCommand(config_path, f'{remote}:{rc_path}', path, rcflags, 'copy')
+        cmd = self.__getUpdatedCommand(
+            config_path, f'{remote}:{rc_path}', path, rcflags, 'copy')
 
         if remote_type == 'drive' and not config_dict['RCLONE_FLAGS'] and not self.__listener.rcFlags:
             cmd.append('--drive-acknowledge-abuse')
@@ -169,7 +169,7 @@ class RcloneTransferHelper:
             epath = f"{remote}:{rc_path}{self.name}"
             destination = epath
 
-        cmd = ['zcl', 'lsjson', '--fast-list', '--no-mimetype',
+        cmd = ['rclone', 'lsjson', '--fast-list', '--no-mimetype',
                '--no-modtime', '--config', config_path, epath]
         res, err, code = await cmd_exec(cmd)
 
@@ -216,9 +216,9 @@ class RcloneTransferHelper:
         rc_path = self.__listener.upPath.strip('/')
         if rc_path.startswith('mrcc:'):
             rc_path = rc_path.split('mrcc:', 1)[1]
-            oconfig_path = f'zcl/{self.__listener.message.from_user.id}.conf'
+            oconfig_path = f'rclone/{self.__listener.message.from_user.id}.conf'
         else:
-            oconfig_path = 'rcl.conf'
+            oconfig_path = 'rclone.conf'
 
         oremote, rc_path = rc_path.split(':', 1)
 
@@ -243,10 +243,10 @@ class RcloneTransferHelper:
 
         fremote = oremote
         fconfig_path = oconfig_path
-        if remote_type == 'drive' and config_dict['USE_SERVICE_ACCOUNTS'] and fconfig_path == 'rcl.conf' \
+        if remote_type == 'drive' and config_dict['USE_SERVICE_ACCOUNTS'] and fconfig_path == 'rclone.conf' \
                 and await aiopath.isdir('accounts') and not remote_opts.get('service_account_file'):
             fconfig_path = await self.__create_rc_sa(oremote, remote_opts)
-            if fconfig_path != 'rcl.conf':
+            if fconfig_path != 'rclone.conf':
                 sa_files = await listdir('accounts')
                 self.__sa_number = len(sa_files)
                 self.__sa_index = randrange(self.__sa_number)
@@ -255,7 +255,8 @@ class RcloneTransferHelper:
 
         rcflags = self.__listener.rcFlags or config_dict['RCLONE_FLAGS']
         method = 'move' if not self.__listener.seed or self.__listener.newDir else 'copy'
-        cmd = self.__getUpdatedCommand(fconfig_path, path, f'{fremote}:{rc_path}', rcflags, method)
+        cmd = self.__getUpdatedCommand(
+            fconfig_path, path, f'{fremote}:{rc_path}', rcflags, method)
         if remote_type == 'drive' and not config_dict['RCLONE_FLAGS'] and not self.__listener.rcFlags:
             cmd.extend(('--drive-chunk-size', '64M',
                        '--drive-upload-cutoff', '32M'))
@@ -276,7 +277,7 @@ class RcloneTransferHelper:
             else:
                 destination = f"{oremote}:{self.name}"
 
-            cmd = ['zcl', 'link', '--config', oconfig_path, destination]
+            cmd = ['rclone', 'link', '--config', oconfig_path, destination]
             res, err, code = await cmd_exec(cmd)
 
             if code == 0:
@@ -295,14 +296,15 @@ class RcloneTransferHelper:
 
         try:
             src_remote_opts, dst_remote_opt = await gather(self.__get_remote_options(config_path, src_remote),
-                                                           self.__get_remote_options(config_path, dst_remote))
+                                                            self.__get_remote_options(config_path, dst_remote))
         except Exception as err:
             await self.__listener.onUploadError(str(err))
             return None, None
 
         src_remote_type, dst_remote_type = src_remote_opts['type'], dst_remote_opt['type']
 
-        cmd = self.__getUpdatedCommand(config_path, f'{src_remote}:{src_path}', destination, rcflags, 'copy')
+        cmd = self.__getUpdatedCommand(
+            config_path, f'{src_remote}:{src_path}', destination, rcflags, 'copy')
         if not rcflags:
             if src_remote_type == 'drive' and dst_remote_type != 'drive':
                 cmd.append('--drive-acknowledge-abuse')
@@ -333,7 +335,7 @@ class RcloneTransferHelper:
                 if mime_type != 'Folder':
                     destination += f'/{self.name}' if dst_path else self.name
 
-                cmd = ['zcl', 'link', '--config', config_path, destination]
+                cmd = ['rclone', 'link', '--config', config_path, destination]
                 res, err, code = await cmd_exec(cmd)
 
                 if self.__is_cancelled:
@@ -350,7 +352,7 @@ class RcloneTransferHelper:
     @staticmethod
     def __getUpdatedCommand(config_path, source, destination, rcflags, method):
         ext = '*.{' + ','.join(GLOBAL_EXTENSION_FILTER) + '}'
-        cmd = ['zcl', method, '--fast-list', '--config', config_path, '-P', source, destination,
+        cmd = ['rclone', method, '--fast-list', '--config', config_path, '-P', source, destination,
                '--exclude', ext, '--ignore-case', '--low-level-retries', '1', '-M', '--log-file',
                'rlog.txt', '--log-level', 'DEBUG']
         if rcflags:
