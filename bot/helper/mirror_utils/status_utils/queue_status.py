@@ -48,3 +48,6 @@ class QueueStatus:
             await self.__listener.onDownloadError('task have been removed from queue/download')
         else:
             await self.__listener.onUploadError('task have been removed from queue/upload')
+
+    def eng(self):
+        return EngineStatus.STATUS_QUEUE
