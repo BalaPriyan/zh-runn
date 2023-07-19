@@ -32,7 +32,7 @@ from .modules import (anonymous, authorize, bot_settings, cancel_mirror,
                       gd_list, leech_del, mirror_leech, rmdb, rss,
                       shell, status, torrent_search,
                       torrent_select, users_settings, ytdlp)
-
+from .helper.themes import BotTheme
 
 @new_thread
 async def stats(_, message):
@@ -71,39 +71,40 @@ async def stats(_, message):
     UMT = 'Unlimited' if config_dict['USER_MAX_TASKS'] == '' else config_dict['USER_MAX_TASKS']
     BMT = 'Unlimited' if config_dict['QUEUE_ALL'] == '' else config_dict['QUEUE_ALL']
 
-    stats = f'<b><i><u>Zee Bot Statistics</u></i></b>\n\n'\
-            f'<b><i><u>Repo Info</u></i></b>\n' \
-            f'<b>Updated:</b> <code>{last_commit}</code>\n' \
-            f'<b>Version:</b> <code>{version}</code>\n' \
-            f'<b>Change Log:</b> <code>{change_log}</code>\n\n' \
-            f'<b><i><u>Bot Info</u></i></b>\n' \
-            f'<b>SYS UPTM:</b> <code>{sysTime}</code>\n' \
-            f'<b>BOT UPTM:</b> <code>{botTime}</code>\n' \
-            f'<b>BOT Restart:</b> <code>{res_time}</code>\n\n' \
-            f'<b>CPU:</b> <code>{get_progress_bar_string(cpuUsage)} {cpuUsage}%</code>\n' \
-            f'<b>CPU Total Core(s):</b> <code>{cpu_count(logical=True)}</code>\n' \
-            f'<b>P-Core(s):</b> <code>{cpu_count(logical=False)}</code> | <b>V-Core(s):</b> <code>{v_core}</code>\n' \
-            f'<b>Frequency:</b> <code>{cpu_freq(percpu=False).current / 1000:.2f} GHz</code>\n\n' \
-            f'<b>RAM:</b> <code>{get_progress_bar_string(mem_p)} {mem_p}%</code>\n' \
-            f'<b>RAM In Use:</b> <code>{get_readable_file_size(memory.used)}</code> [{mem_p}%]\n' \
-            f'<b>Total:</b> <code>{get_readable_file_size(memory.total)}</code> | <b>Free:</b> <code>{get_readable_file_size(memory.available)}</code>\n\n' \
-            f'<b>SWAP:</b> <code>{get_progress_bar_string(swap.percent)} {swap.percent}%</code>\n' \
-            f'<b>SWAP In Use:</b> <code>{get_readable_file_size(swap.used)}</code> [{swap.percent}%]\n' \
-            f'<b>Allocated</b> <code>{get_readable_file_size(swap.total)}</code> | <b>Free:</b> <code>{get_readable_file_size(swap.free)}</code>\n\n' \
-            f'<b>DISK:</b> <code>{get_progress_bar_string(disk)} {disk}%</code>\n' \
-            f'<b>Drive In Use:</b> <code>{used}</code> [{disk}%]\n' \
-            f'<b>Total:</b> <code>{total}</code> | <b>Free:</b> <code>{free}</code>\n\n' \
-            f'<b>UL:</b> <code>{sent}</code> | <b>DL:</b> <code>{recv}</code>\n\n' \
-            f'<b><i><u>Bot Limits</u></i></b>\n' \
-            f'<code>Torrent   : {TOR}</code> <b>GB</b>\n' \
-            f'<code>G-Drive   : {GDL}</code> <b>GB</b>\n' \
-            f'<code>Yt-Dlp    : {YTD}</code> <b>GB</b>\n' \
-            f'<code>Direct    : {DIR}</code> <b>GB</b>\n' \
-            f'<code>Clone     : {CLL}</code> <b>GB</b>\n' \
-            f'<code>Leech     : {TGL}</code> <b>GB</b>\n' \
-            f'<code>MEGA      : {MGA}</code> <b>GB</b>\n' \
-            f'<code>User Tasks: {UMT}</code>\n' \
-            f'<code>Bot Tasks : {BMT}</code>'
+    stats = BotTheme('STATS',
+                     last_commit=last_commit,
+                     bot_version=get_version(),
+                     commit_details=changelog,
+                     bot_uptime=get_readable_time(time() - botStartTime),
+                     os_uptime=get_readable_time(time() - boot_time()),
+                     os_arch=f"{platform.system()}, {platform.release()}, {platform.machine()}",
+                     cpu=cpuUsage,
+                     cpu_bar=get_progress_bar_string(cpuUsage),
+                     cpu_freq=f"{cpu_freq(percpu=False).current / 1000:.2f} GHz" if cpu_freq() else "Access Denied",
+                     p_core=cpu_count(logical=False),
+                     v_core=cpu_count(logical=True) - cpu_count(logical=False),
+                     total_core=cpu_count(logical=True),
+                     ram_bar=get_progress_bar_string(memory.percent),
+                     ram=memory.percent,
+                     ram_u=get_readable_file_size(memory.used),
+                     ram_f=get_readable_file_size(memory.available),
+                     ram_t=get_readable_file_size(memory.total),
+                     swap_bar=get_progress_bar_string(swap.percent),
+                     swap=swap.percent,
+                     swap_u=get_readable_file_size(swap.used),
+                     swap_f=get_readable_file_size(swap.free),
+                     swap_t=get_readable_file_size(swap.total),
+                     disk=disk,
+                     disk_bar=get_progress_bar_string(disk),
+                     disk_t=get_readable_file_size(total),
+                     disk_u=get_readable_file_size(used),
+                     disk_f=get_readable_file_size(free),
+                     up_data=get_readable_file_size(
+                         net_io_counters().bytes_sent),
+                     dl_data=get_readable_file_size(
+                         net_io_counters().bytes_recv)
+                     )
+    await sendMessage(message, stats, photo='IMAGES')
     reply_message = await sendMessage(message, stats)
     await auto_delete_message(message, reply_message)
 
@@ -160,71 +161,72 @@ async def ping(_, message):
 async def log(_, message):
     await sendFile(message, 'Z_Logs.txt')
 
-help_string = f'''
-<b>NOTE: Click on any CMD to see more detalis.</b>
+help_string = f'''<b><i>㊂ Help Guide :</i></b>
 
-/{BotCommands.MirrorCommand[0]} or /{BotCommands.MirrorCommand[1]}: Upload to Cloud Drive.
+- <b>NOTE: <i>Click on any CMD to see more minor detalis.</i></b>
 
-<b>Use qBit commands for torrents only:</b>
-/{BotCommands.QbMirrorCommand[0]} or /{BotCommands.QbMirrorCommand[1]}: Download using qBittorrent and Upload to Cloud Drive.
+╭─<b>Use Mirror commands to download your link/file/rcl</b>
+╰  /{BotCommands.MirrorCommand[0]} or /{BotCommands.MirrorCommand[1]}: Download via file/url/media to Upload to Cloud Drive.
 
-/{BotCommands.BtSelectCommand}: Select files from torrents by gid or reply.
-/{BotCommands.CategorySelect}: Change upload category for Google Drive.
+╭─<b>Use qBit commands for torrents only:</b>
+├ /{BotCommands.QbMirrorCommand[0]} or /{BotCommands.QbMirrorCommand[1]}: Download using qBittorrent and Upload to Cloud Drive.
+╰  /{BotCommands.BtSelectCommand}: Select files from torrents by btsel_gid or reply.
 
-<b>Use Yt-Dlp commands for YouTube or any videos:</b>
-/{BotCommands.YtdlCommand[0]} or /{BotCommands.YtdlCommand[1]}: Mirror yt-dlp supported link.
+╭─<b>Use yt-dlp commands for YouTube or any supported sites:</b>
+╰  /{BotCommands.YtdlCommand[0]} or /{BotCommands.YtdlCommand[1]}: Mirror yt-dlp supported link.
 
-<b>Use Leech commands for upload to Telegram:</b>
-/{BotCommands.LeechCommand[0]} or /{BotCommands.LeechCommand[1]}: Upload to Telegram.
-/{BotCommands.QbLeechCommand[0]} or /{BotCommands.QbLeechCommand[1]}: Download using qBittorrent and upload to Telegram(For torrents only).
-/{BotCommands.YtdlLeechCommand[0]} or /{BotCommands.YtdlLeechCommand[1]}: Download using Yt-Dlp(supported link) and upload to telegram.
+╭─<b>Use Leech commands for upload to Telegram:</b>
+├ /{BotCommands.LeechCommand[0]} or /{BotCommands.LeechCommand[1]}: Upload to Telegram.
+├ /{BotCommands.QbLeechCommand[0]} or /{BotCommands.QbLeechCommand[1]}: Download using qBittorrent and upload to Telegram(For torrents only).
+╰ /{BotCommands.YtdlLeechCommand[0]} or /{BotCommands.YtdlLeechCommand[1]}: Download using Yt-Dlp(supported link) and upload to telegram.
 
-/leech{BotCommands.DeleteCommand} [telegram_link]: Delete replies from telegram (Only Owner & Sudo).
+╭─<b>G-Drive commands:</b>
+├ /{BotCommands.CloneCommand[0]}: Copy file/folder to Cloud Drive.
+├ /{BotCommands.CountCommand} [drive_url]: Count file/folder of Google Drive.
+├ /{BotCommands.DeleteCommand} [drive_url]: Delete file/folder from Google Drive (Only Owner & Sudo).
+╰ /{BotCommands.GDCleanCommand[0]} or /{BotCommands.GDCleanCommand[1]} [drive_id]: Delete all files from specific folder in Google Drive.
 
-<b>G-Drive commands:</b>
-/{BotCommands.CloneCommand}: Copy file/folder to Cloud Drive.
-/{BotCommands.CountCommand} [drive_url]: Count file/folder of Google Drive.
-/{BotCommands.DeleteCommand} [drive_url]: Delete file/folder from Google Drive (Only Owner & Sudo).
+╭─<b>Cancel Tasks:</b>
+├ /{BotCommands.CancelMirror}: Cancel task by cancel_gid or reply.
+╰ /{BotCommands.CancelAllCommand[0]}: Cancel all Tasks & /{BotCommands.CancelAllCommand[1]} for Multiple Bots.
 
-<b>Cancel Tasks:</b>
-/{BotCommands.CancelMirror}: Cancel task by gid or reply.
-/{BotCommands.CancelAllCommand[0]} : Cancel all tasks which added by you /{BotCommands.CancelAllCommand[1]} to in bots.
+╭─<b>Torrent/Drive Search:</b>
+├ /{BotCommands.ListCommand} [query]: Search in Google Drive(s).
+╰ /{BotCommands.SearchCommand} [query]: Search for torrents with API.
 
-<b>Torrent/Drive Search:</b>
-/{BotCommands.ListCommand} [query]: Search in Google Drive(s).
-/{BotCommands.SearchCommand} [query]: Search for torrents with API.
+╭─<b>Bot Settings:</b>
+├ /{BotCommands.UserSetCommand[0]} or /{BotCommands.UserSetCommand[1]} [query]: Open User Settings (PM also)
+├ /{BotCommands.UsersCommand}: Show User Stats Info (Only Owner & Sudo).
+╰ /{BotCommands.BotSetCommand[0]} or /{BotCommands.BotSetCommand[0]} [query]: Open Bot Settings (Only Owner & Sudo).
 
-<b>Bot Settings:</b>
-/{BotCommands.UserSetCommand}: Open User settings.
-/{BotCommands.UsersCommand}: show users settings (Only Owner & Sudo).
-/{BotCommands.BotSetCommand}: Open Bot settings (Only Owner & Sudo).
+╭─<b>Authentication:</b>
+├ /login: Login to Bot to Access Bot without Temp Pass System (Private)
+├ /{BotCommands.AuthorizeCommand[0]} or /{BotCommands.AuthorizeCommand[1]}: Authorize a chat or a user to use the bot (Only Owner & Sudo).
+├ /{BotCommands.UnAuthorizeCommand[0]} or /{BotCommands.UnAuthorizeCommand[1]}: Unauthorize a chat or a user to use the bot (Only Owner & Sudo).
+├ /{BotCommands.AddSudoCommand}: Add sudo user (Only Owner).
+╰ /{BotCommands.RmSudoCommand}: Remove sudo users (Only Owner).
 
-<b>Authentication:</b>
-/{BotCommands.AuthorizeCommand}: Authorize a chat or a user to use the bot (Only Owner & Sudo).
-/{BotCommands.UnAuthorizeCommand}: Unauthorize a chat or a user to use the bot (Only Owner & Sudo).
-/{BotCommands.AddSudoCommand}: Add sudo user (Only Owner).
-/{BotCommands.RmSudoCommand}: Remove sudo users (Only Owner).
+╭─<b>Bot Stats:</b>
+├ /{BotCommands.BroadcastCommand[0]} or /{BotCommands.BroadcastCommand[1]} [reply_msg]: Broadcast to PM users who have started the bot anytime.
+├ /{BotCommands.StatusCommand[0]} or /{BotCommands.StatusCommand[1]}: Shows a status page of all active tasks.
+├ /{BotCommands.StatsCommand[0]} or /{BotCommands.StatsCommand[1]}: Show Server detailed stats.
+╰ /{BotCommands.PingCommand[0]} or /{BotCommands.PingCommand[1]}: Check how long it takes to Ping the Bot.
 
-<b>Bot Stats:</b>
-/{BotCommands.StatusCommand[0]} or /{BotCommands.StatusCommand[1]}: Shows a status of all active tasks.
-/{BotCommands.StatsCommand[0]} or /{BotCommands.StatsCommand[1]}: Show server stats.
-/{BotCommands.PingCommand[0]} or /{BotCommands.PingCommand[1]}: Check how long it takes to Ping the Bot.
+╭─<b>Maintainance:</b>
+├ /{BotCommands.RestartCommand[0]} or /{BotCommands.RestartCommand[1]}: Restart and Update the Bot (Only Owner & Sudo).
+├ /{BotCommands.RestartCommand[2]}: Restart and Update all Bots (Only Owner & Sudo).
+╰ /{BotCommands.LogCommand}: Get a log file of the bot. Handy for getting crash reports (Only Owner & Sudo).
 
-<b>Maintainance:</b>
-/{BotCommands.RestartCommand[0]}: Restart and update the bot (Only Owner & Sudo).
-/{BotCommands.RestartCommand[1]}: Restart and update all bots (Only Owner & Sudo).
-/{BotCommands.LogCommand}: Get a log file of the bot. Handy for getting crash reports (Only Owner & Sudo).
+╭─<b>Extras:</b>
+├ /{BotCommands.ShellCommand}: Run shell commands (Only Owner).
+├ /{BotCommands.EvalCommand}: Run Python Code Line | Lines (Only Owner).
+├ /{BotCommands.ExecCommand}: Run Commands In Exec (Only Owner).
+╰ /{BotCommands.ClearLocalsCommand}: Clear {BotCommands.EvalCommand} or {BotCommands.ExecCommand} locals (Only Owner).
 
-<b>Extras:</b>
-/{BotCommands.ShellCommand}: Run shell commands (Only Owner).
-/{BotCommands.EvalCommand}: Run Python Code Line | Lines (Only Owner).
-/{BotCommands.ExecCommand}: Run Commands In Exec (Only Owner).
-/{BotCommands.ClearLocalsCommand}: Clear {BotCommands.EvalCommand} or {BotCommands.ExecCommand} locals (Only Owner).
+╭─<b>RSS Feed:</b>
+╰ /{BotCommands.RssCommand}: Open RSS Menu.
 
-<b>RSS Feed:</b>
-/{BotCommands.RssCommand}: Open RSS Menu.
-
-<b>Attention: Read the first line again!</b>
+- <b>Attention: Read the first line again!</b>
 '''
 
 @new_thread
@@ -234,6 +236,7 @@ async def bot_help(_, message):
 
 
 async def restart_notification():
+    now=datetime.now(timezone(config_dict['TIMEZONE']))
     if await aiopath.isfile(".restartmsg"):
         with open(".restartmsg") as f:
             chat_id, msg_id = map(int, f)
@@ -293,7 +296,7 @@ async def main():
         BotCommands.HelpCommand) & CustomFilters.authorized))
     bot.add_handler(MessageHandler(stats, filters=command(
         BotCommands.StatsCommand) & CustomFilters.authorized))
-    LOGGER.info("Congratulations, Bot Started Successfully!")
+    LOGGER.info("Spidy Parker Bot Started Successfully!")
     signal(SIGINT, exit_clean_up)
 
 bot.loop.run_until_complete(main())
