@@ -24,10 +24,10 @@ async def stop_duplicate_check(name, listener):
             base_name = get_base_name(base_name)
         except:
             name = None
-    if name is not None:
+ if name is not None:
         telegraph_content, contents_no = await sync_to_async(GoogleDriveHelper().drive_list, name, stopDup=True)
         if telegraph_content:
-            msg = f"File/Folder is already available in Drive.\nHere are {contents_no} list results:"
+            msg = BotTheme('STOP_DUPLICATE', content=contents_no)
             button = await get_telegraph_list(telegraph_content)
             return msg, button
     return False, None
@@ -113,6 +113,10 @@ async def start_from_queued():
 
 
 async def limit_checker(size, listener, isTorrent=False, isMega=False, isDriveLink=False, isYtdlp=False):
+    LOGGER.info('Checking Size Limit of link/file/folder/tasks...')
+    user_id = listener.message.from_user.id
+    if user_id == OWNER_ID or user_id in user_data and user_data[user_id].get('is_sudo'):
+        return
     limit_exceeded = ''
     if listener.isClone:
         if CLONE_LIMIT := config_dict['CLONE_LIMIT']:
@@ -143,15 +147,41 @@ async def limit_checker(size, listener, isTorrent=False, isMega=False, isDriveLi
         limit = DIRECT_LIMIT * 1024**3
         if size > limit:
             limit_exceeded = f'Direct limit is {get_readable_file_size(limit)}'
-    if not limit_exceeded and (LEECH_LIMIT := config_dict['LEECH_LIMIT']) and listener.isLeech:
-        limit = LEECH_LIMIT * 1024**3
-        if size > limit:
-            limit_exceeded = f'Leech limit is {get_readable_file_size(limit)}'
-    if not limit_exceeded and (STORAGE_THRESHOLD := config_dict['STORAGE_THRESHOLD']) and not listener.isClone:
-        arch = any([listener.compress, listener.extract])
-        limit = STORAGE_THRESHOLD * 1024**3
-        acpt = await sync_to_async(check_storage_threshold, size, limit, arch)
-        if not acpt:
-            limit_exceeded = f'You must leave {get_readable_file_size(limit)} free storage.'
+    if not limit_exceeded:
+        if (LEECH_LIMIT := config_dict['LEECH_LIMIT']) and listener.isLeech:
+            limit = LEECH_LIMIT * 1024**3
+            if size > limit:
+                limit_exceeded = f'Leech limit is {get_readable_file_size(limit)}'
+        
+        if (STORAGE_THRESHOLD := config_dict['STORAGE_THRESHOLD']) and not listener.isClone:
+            arch = any([listener.compress, listener.extract])
+            limit = STORAGE_THRESHOLD * 1024**3
+            acpt = await sync_to_async(check_storage_threshold, size, limit, arch)
+            if not acpt:
+                limit_exceeded = f'You must leave {get_readable_file_size(limit)} free storage.'
+        
+        if (PLAYLIST_LIMIT := config_dict['PLAYLIST_LIMIT']):
+            limit_exceeded = f'Playlist limit is {PLAYLIST_LIMIT}'
+
+        if config_dict['DAILY_TASK_LIMIT'] and config_dict['DAILY_TASK_LIMIT'] <= await getdailytasks(user_id):
+            limit_exceeded = f"Daily Total Task Limit: {config_dict['DAILY_TASK_LIMIT']}\nYou have exhausted all your Daily Task Limits."
+        else:
+            ttask = await getdailytasks(user_id, increase_task=True)
+            LOGGER.info(f"User: {user_id} | Daily Tasks: {ttask}")
+        if (DAILY_MIRROR_LIMIT := config_dict['DAILY_MIRROR_LIMIT']) and not listener.isLeech:
+            limit = DAILY_MIRROR_LIMIT * 1024**3
+            if (size >= (limit - await getdailytasks(user_id, check_mirror=True)) or limit <= await getdailytasks(user_id, check_mirror=True)):
+                limit_exceeded = f'Daily Mirror Limit is {get_readable_file_size(limit)}\nYou have exhausted all your Daily Mirror Limit.'
+            elif not listener.isLeech:
+                msize = await getdailytasks(user_id, upmirror=size, check_mirror=True)
+                LOGGER.info(f"User : {user_id} | Daily Mirror Size : {get_readable_file_size(msize)}")
+        if (DAILY_LEECH_LIMIT := config_dict['DAILY_LEECH_LIMIT']) and listener.isLeech:
+            limit = DAILY_LEECH_LIMIT * 1024**3
+            if (size >= (limit - await getdailytasks(user_id, check_leech=True)) or limit <= await getdailytasks(user_id, check_leech=True)):
+                limit_exceeded = f'Daily Leech Limit is {get_readable_file_size(limit)}\nYou have exhausted all your Daily Leech Limit.'
+            elif listener.isLeech:
+                lsize = await getdailytasks(user_id, upleech=size, check_leech=True)
+                LOGGER.info(f"User : {user_id} | Daily Leech Size : {get_readable_file_size(lsize)}")
+
     if limit_exceeded:
-        return f"{limit_exceeded}.\nYour File/Folder size is {get_readable_file_size(size)}"
+        return f"{limit_exceeded}.\nYour List/File/Folder size is {get_readable_file_size(size)}"
