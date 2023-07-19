@@ -120,4 +120,7 @@ class QbittorrentStatus:
             await sync_to_async(self.__client.torrents_delete_tags, tags=self.__info.tags)
             async with qb_listener_lock:
                 if self.__info.tags in QbTorrents:
-                    del QbTorrents[self.__info.tags]
+                  del QbTorrents[self.__info.tags]
+
+    def eng(self):
+        return EngineStatus.STATUS_QB
