@@ -34,6 +34,7 @@ async def is_multi_streams(path):
         elif stream.get('codec_type') == 'audio':
             audios += 1
     return videos > 1 or audios > 1
+    
 
 
 async def get_media_info(path):
@@ -191,21 +192,97 @@ async def split_file(path, size, file_, dirpath, split_size, listener, start_tim
     return True
 
 
-async def remove_unwanted(file_, lremname):
-    if lremname and not lremname.startswith('|'):
-        lremname = f"|{lremname}"
-    lremname = lremname.replace('\s', ' ')
-    div = lremname.split("|")
-    zName = ospath.splitext(file_)[0]
-    for rep in range(1, len(div)):
-        args = div[rep].split(":")
-        num_args = len(args)
-        if num_args == 3:
-            zName = re_sub(args[0], args[1], zName, int(args[2]))
-        elif num_args == 2:
-            zName = re_sub(args[0], args[1], zName)
-        elif num_args == 1:
-            zName = re_sub(args[0], '', zName)
-    file_ = zName + ospath.splitext(file_)[1]
-    LOGGER.info(f"New File Name: {file_}")
-    return file_
+async def format_filename(file_, user_id, dirpath=None, isMirror=False):
+    user_dict = user_data.get(user_id, {})
+    ftag, ctag = ('m', 'MIRROR') if isMirror else ('l', 'LEECH')
+    prefix = config_dict[f'{ctag}_FILENAME_PREFIX'] if (val:=user_dict.get(f'{ftag}prefix', '')) == '' else val
+    remname = config_dict[f'{ctag}_FILENAME_REMNAME'] if (val:=user_dict.get(f'{ftag}remname', '')) == '' else val
+    suffix = config_dict[f'{ctag}_FILENAME_SUFFIX'] if (val:=user_dict.get(f'{ftag}suffix', '')) == '' else val
+    lcaption = config_dict['LEECH_FILENAME_CAPTION'] if (val:=user_dict.get('lcaption', '')) == '' else val
+ 
+    prefile_ = file_
+    # SD-Style V2 ~ WZML-X
+    if file_.startswith('www'): #Remove all www.xyz.xyz domains
+        file_ = ' '.join(file_.split()[1:])
+        
+    if remname:
+        if not remname.startswith('|'):
+            remname = f"|{remname}"
+        remname = remname.replace('\s', ' ')
+        slit = remname.split("|")
+        __newFileName = ospath.splitext(file_)[0]
+        for rep in range(1, len(slit)):
+            args = slit[rep].split(":")
+            if len(args) == 3:
+                __newFileName = re_sub(args[0], args[1], __newFileName, int(args[2]))
+            elif len(args) == 2:
+                __newFileName = re_sub(args[0], args[1], __newFileName)
+            elif len(args) == 1:
+                __newFileName = re_sub(args[0], '', __newFileName)
+        file_ = __newFileName + ospath.splitext(file_)[1]
+        LOGGER.info(f"New Remname : {file_}")
+
+    nfile_ = file_
+    if prefix:
+        nfile_ = prefix.replace('\s', ' ') + file_
+        prefix = re_sub('<.*?>', '', prefix).replace('\s', ' ')
+        if not file_.startswith(prefix):
+            file_ = f"{prefix}{file_}"
+
+    if suffix and not isMirror:
+        suffix = suffix.replace('\s', ' ')
+        sufLen = len(suffix)
+        fileDict = file_.split('.')
+        _extIn = 1 + len(fileDict[-1])
+        _extOutName = '.'.join(
+            fileDict[:-1]).replace('.', ' ').replace('-', ' ')
+        _newExtFileName = f"{_extOutName}{suffix}.{fileDict[-1]}"
+        if len(_extOutName) > (64 - (sufLen + _extIn)):
+            _newExtFileName = (
+                _extOutName[: 64 - (sufLen + _extIn)]
+                + f"{suffix}.{fileDict[-1]}"
+            )
+        file_ = _newExtFileName
+    elif suffix:
+        suffix = suffix.replace('\s', ' ')
+        file_ = f"{ospath.splitext(file_)[0]}{suffix}{ospath.splitext(file_)[1]}" if '.' in file_ else f"{file_}{suffix}"
+
+
+    cap_mono =  f"<{config_dict['CAP_FONT']}>{nfile_}</{config_dict['CAP_FONT']}>" if config_dict['CAP_FONT'] else nfile_
+    if lcaption and dirpath and not isMirror:
+        lcaption = lcaption.replace('\|', '%%').replace('\s', ' ')
+        slit = lcaption.split("|")
+        up_path = ospath.join(dirpath, prefile_)
+        cap_mono = slit[0].format(
+            filename=nfile_,
+            size=get_readable_file_size(await aiopath.getsize(up_path)),
+            duration = get_readable_time((await get_media_info(up_path))[0])
+        )
+        if len(slit) > 1:
+            for rep in range(1, len(slit)):
+                args = slit[rep].split(":")
+                if len(args) == 3:
+                    cap_mono = cap_mono.replace(args[0], args[1], int(args[2]))
+                elif len(args) == 2:
+                    cap_mono = cap_mono.replace(args[0], args[1])
+                elif len(args) == 1:
+                    cap_mono = cap_mono.replace(args[0], '')
+        cap_mono = cap_mono.replace('%%', '|')
+    return file_, cap_mono
+    
+    
+async def get_mediainfo_link(up_path):
+    stdout, __, _ = await cmd_exec(ssplit(f'mediainfo "{up_path}"'))
+    tc = f"📌 <h4>{ospath.basename(up_path)}</h4><br><br>"
+    if len(stdout) != 0:
+        tc += parseinfo(stdout)
+    link_id = (await telegraph.create_page(title="MediaInfo X", content=tc))["path"]
+    return f"https://graph.org/{link_id}"
+
+
+def get_md5_hash(up_path):
+    md5_hash = hashlib.md5()
+    with open(up_path, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            md5_hash.update(byte_block)
+        return md5_hash.hexdigest()
