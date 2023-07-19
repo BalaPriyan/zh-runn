@@ -73,3 +73,6 @@ class SplitStatus:
         else:
             self.__listener.suproc = 'cancelled'
         await self.__listener.onUploadError('splitting stopped by user!')
+
+    def eng(self):
+        return EngineStatus.STATUS_SPLIT_MERGE
